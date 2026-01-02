@@ -81,6 +81,7 @@ const promptUnderstandingOutput = document.getElementById('promptUnderstandingOu
 const apiProviderSelect = document.getElementById('apiProviderSelect');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const preserveApiKeyCheckbox = document.getElementById('preserveApiKeyCheckbox');
+const apiKeyReminder = document.getElementById('apiKeyReminder');
 const modelInput = document.getElementById('modelInput');
 const baseUrlInput = document.getElementById('baseUrlInput');
 
@@ -1519,11 +1520,28 @@ async function generateAnalysis(promptText, focusInput) {
     return result;
 }
 
+// Track if user has started entering API key after refresh
+let hasEnteredApiKey = false;
+
+function updateApiKeyReminder() {
+    if (preserveApiKeyCheckbox.checked || hasEnteredApiKey) {
+        apiKeyReminder.classList.add('hidden');
+    } else {
+        apiKeyReminder.classList.remove('hidden');
+    }
+}
+
 function loadApiSettings() {
     const stored = JSON.parse(localStorage.getItem('xmlPromptBuilder_apiSettings') || '{}');
 
     // Restore checkbox state, or auto-enable if API key was previously stored
     preserveApiKeyCheckbox.checked = stored.preserveApiKey || (stored.apiKey ? true : false);
+
+    // Initialize API key entry flag - true if preservation is enabled or key was already entered
+    hasEnteredApiKey = preserveApiKeyCheckbox.checked || (stored.apiKey ? true : false);
+
+    // Update reminder visibility based on checkbox state and key entry status
+    updateApiKeyReminder();
 
     // Load stored settings properly restoring all fields
     if (stored.provider) {
@@ -1602,8 +1620,17 @@ promptUnderstandingInput.addEventListener('keydown', (e) => {
 
 // API Settings - auto-save on field changes
 apiProviderSelect.addEventListener('change', saveApiSettings);
-apiKeyInput.addEventListener('input', saveApiSettings);
-preserveApiKeyCheckbox.addEventListener('change', saveApiSettings);
+apiKeyInput.addEventListener('input', () => {
+    if (!hasEnteredApiKey && apiKeyInput.value.trim()) {
+        hasEnteredApiKey = true;
+        updateApiKeyReminder();
+    }
+    saveApiSettings();
+});
+preserveApiKeyCheckbox.addEventListener('change', () => {
+    saveApiSettings();
+    updateApiKeyReminder();
+});
 modelInput.addEventListener('blur', saveApiSettings);
 baseUrlInput.addEventListener('blur', saveApiSettings);
 

@@ -1,0 +1,77 @@
+.editor-textarea {
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+  tab-size: 4;
+  line-height: 1.6;
+}
+
+.template-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.tab-active {
+  background-color: #374151;
+  color: white;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.sidebar-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.field-textarea {
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.resizer {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  position: relative;
+}
+
+.resizer-vertical {
+  cursor: ns-resize;
+}
+
+.resizer-vertical::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.2) 75%, transparent 75%);
+  background-size: 4px 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.resizer-vertical:hover::after {
+  opacity: 1;
+}
+
+.bottom-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #4a5568 #1a202c;
+}
+
+.bottom-panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bottom-panel-scroll::-webkit-scrollbar-track {
+  background: #1a202c;
+  border-radius: 3px;
+}
+
+.bottom-panel-scroll::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 3px;
+}
+
+.bottom-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: #5a6578;
+}

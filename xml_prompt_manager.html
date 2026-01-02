@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XML Prompt Builder</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-gray-800 px-4 py-3 flex items-center justify-between border-b border-gray-700 shrink-0">
+        <div class="flex items-center gap-3">
+            <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+            <h1 class="text-xl font-bold text-blue-400">XML Prompt Builder</h1>
+        </div>
+        <div class="flex gap-2">
+            <!-- Export button -->
+            <button id="exportBtn" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M8 12l4 4m0 0l4-4m-4 4V4"/>
+                </svg>
+                Export
+            </button>
+            <!-- Import button -->
+            <button id="importBtn" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Import
+            </button>
+            <!-- Lessen button -->
+            <button id="lessenBtn" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded text-sm font-medium transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6M6 12l6-6m-6 6l6 6"/>
+                </svg>
+                <span>Lessen</span>
+            </button>
+            <!-- Prettify button -->
+            <button id="prettifyBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
+                </svg>
+                <span>Prettify</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex flex-1 overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col shrink-0">
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-700">
+                <button id="structureTabBtn" class="flex-1 px-4 py-3 text-sm font-medium tab-active transition">
+                    <div class="flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                        Structures
+                    </div>
+                </button>
+                <button id="fieldTabBtn" class="flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-white transition">
+                    <div class="flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                        Fields
+                    </div>
+                </button>
+            </div>
+
+            <!-- Save buttons -->
+            <div class="p-3 border-b border-gray-700">
+                <div id="structureSaveArea">
+                    <button id="saveStructureBtn" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                        </svg>
+                        Save Structure Template
+                    </button>
+                </div>
+                <div id="fieldSaveArea" class="hidden">
+                    <button id="saveFieldBtn" class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded text-sm font-medium transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                        </svg>
+                        Save Field Template
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Template lists -->
+            <div id="structureTab" class="flex-1 overflow-y-auto p-2">
+                <p class="text-xs text-gray-500 mb-2 px-2">Click to replace editor content</p>
+                <div id="structureList" class="space-y-1"></div>
+                <div id="structureEmpty" class="text-gray-500 text-sm text-center py-8">
+                    No structure templates yet
+                </div>
+            </div>
+            <div id="fieldTab" class="flex-1 overflow-y-auto p-2 hidden">
+                <p class="text-xs text-gray-500 mb-2 px-2">Click to insert at cursor</p>
+                <div id="fieldList" class="space-y-1"></div>
+                <div id="fieldEmpty" class="text-gray-500 text-sm text-center py-8">
+                    No field templates yet
+                </div>
+            </div>
+        </aside>
+
+        <!-- Editor Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Toolbar hints -->
+            <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 text-xs text-gray-400 flex gap-4">
+                <span>💡 Type <code class="bg-gray-700 px-1 rounded">&lt;&gt;</code> to auto-create tag pair</span>
+                <span>💡 Alt+Up/Down to drag lines</span>
+                <span>💡 Tags sync automatically</span>
+            </div>
+            <!-- Editor -->
+            <div class="flex-1 relative">
+                <textarea 
+                    id="editor" 
+                    class="editor-textarea absolute inset-0 w-full h-full bg-gray-900 text-gray-100 p-4 resize-none focus:outline-none text-sm"
+                    placeholder="Start typing your XML prompt here...
+
+Type '<>' to create a new tag pair with auto-closing.
+Example: Type '<' then '>' and it creates <tag_name></tag_name>
+
+Use Alt+Up/Down Arrow to move current line or selection.
+
+Tabulation works as expected with Tab and Shift+Tab keys.
+
+Ctrl+/ to toggle bottom panel with AI functions. Make sure to save your setup in the API Setup tab."
+                    spellcheck="false"
+                ></textarea>
+            </div>
+            <!-- Status bar -->
+            <div class="bg-gray-800 px-4 py-1 border-t border-gray-700 text-xs text-gray-400 flex justify-between">
+                <span id="statusMsg">Ready</span>
+                <span id="modeIndicator" class="text-blue-400">Mode: Normal</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Resizer Handle -->
+    <div id="bottomResizer" class="resizer resizer-vertical h-1 bg-gray-600 hover:bg-blue-500 cursor-ns-resize transition-colors" title="Drag to resize panel">
+        <div class="w-full h-full"></div>
+    </div>
+
+    <!-- Bottom Panel (like VSCode terminal area) -->
+    <div class="bottom-panel-container bg-gray-800 border-t border-gray-700 flex flex-col shrink-0" style="height: 300px;">
+        <!-- Bottom Panel Header -->
+        <div class="flex items-center bg-gray-700 px-4 py-2 text-xs justify-between">
+            <div class="flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8l-4-4m0 0l-4 4m4-4v12M8 12l4 4m0 0l4-4m-4 4v-12"/>
+                </svg>
+                <span class="font-medium">Panel</span>
+                <div class="bottom-tabs flex gap-1 ml-4">
+                    <button id="promptQuestionsTab" class="bottom-tab-button px-3 py-1 rounded text-gray-400 hover:text-white hover:bg-gray-600 transition flex items-center gap-1" data-tab="prompt-questions">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Questions
+                    </button>
+                    <button id="promptUnderstandingTab" class="bottom-tab-button px-3 py-1 rounded text-gray-400 hover:text-white hover:bg-gray-600 transition flex items-center gap-1" data-tab="prompt-understanding">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                        Understanding
+                    </button>
+                    <button id="apiSetupTab" class="bottom-tab-button px-3 py-1 rounded text-gray-400 hover:text-white hover:bg-gray-600 transition flex items-center gap-1" data-tab="api-setup">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        API Setup
+                    </button>
+                </div>
+            </div>
+            <button id="toggleBottomPanelBtn" class="text-gray-400 hover:text-white transition" title="Toggle panel visibility (Ctrl+/)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Tab Content Areas -->
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Prompt Questions Tab -->
+            <div id="promptQuestionsPanel" class="tab-panel flex-1 bg-gray-900 flex flex-col">
+                <div class="p-3 border-b border-gray-700 bg-gray-800">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-sm text-gray-400">Input:</span>
+                        <input
+                            type="text"
+                            id="promptQuestionsInput"
+                            class="flex-1 px-3 py-1 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+                            placeholder="Ask questions about the current prompt (press Enter)"
+                        >
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        Generate targeted questions that will help clarify and improve the prompt context
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-3 bottom-panel-scroll">
+                    <div id="promptQuestionsOutput" class="font-mono text-sm text-gray-300 whitespace-pre-wrap"></div>
+                </div>
+            </div>
+
+            <!-- Prompt Understanding Tab -->
+            <div id="promptUnderstandingPanel" class="tab-panel flex-1 bg-gray-900 flex flex-col hidden">
+                <div class="p-3 border-b border-gray-700 bg-gray-800">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-sm text-gray-400">Input:</span>
+                        <input
+                            type="text"
+                            id="promptUnderstandingInput"
+                            class="flex-1 px-3 py-1 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+                            placeholder="Describe model understanding (press Enter)"
+                        >
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        Analyze and describe how the model interprets the current prompt
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-3 bottom-panel-scroll">
+                    <div id="promptUnderstandingOutput" class="font-mono text-sm text-gray-300 whitespace-pre-wrap"></div>
+                </div>
+            </div>
+
+            <!-- API Setup Tab -->
+            <div id="apiSetupPanel" class="tab-panel flex-1 bg-gray-900 flex flex-col hidden">
+                <div class="flex-1 p-6 overflow-y-auto bottom-panel-scroll">
+                    <h3 class="text-lg font-bold mb-4 text-gray-200">API Configuration</h3>
+                    <div class="space-y-4 max-w-md">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                            <select id="apiProviderSelect" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm">
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="google">Google AI</option>
+                                <option value="ollama">Ollama (Local)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">API Key</label>
+                            <input
+                                type="password"
+                                id="apiKeyInput"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+                                placeholder="Enter your API key"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Model</label>
+                            <input
+                                type="text"
+                                id="modelInput"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+                                placeholder="gpt-4, claude-3-sonnet, etc."
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Base URL (optional)</label>
+                            <input
+                                type="text"
+                                id="baseUrlInput"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+                                placeholder="https://api.openai.com/v1"
+                            >
+                        </div>
+                        <button id="saveApiSettingsBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition">
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input
+        type="file"
+        id="importFileInput"
+        accept=".json,application/json"
+        class="hidden"
+    >
+
+    <!-- Modal for saving structure templates -->
+    <div id="saveStructureModal" class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 rounded-lg p-6 w-96 border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                </svg>
+                Save Structure Template
+            </h3>
+            <input 
+                type="text" 
+                id="structureNameInput" 
+                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter template name..."
+            >
+            <p class="text-xs text-gray-500 mt-2">Saves entire editor content as a structure template</p>
+            <p id="structureModalError" class="text-red-400 text-sm mt-2 hidden"></p>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="cancelStructureSaveBtn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm transition">Cancel</button>
+                <button id="confirmStructureSaveBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for saving field templates -->
+    <div id="saveFieldModal" class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 rounded-lg p-6 w-[32rem] border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+                Save Field Template
+            </h3>
+            <input 
+                type="text" 
+                id="fieldNameInput" 
+                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 mb-3"
+                placeholder="Enter template name..."
+            >
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-sm text-gray-400">Field content:</label>
+                <button id="pasteFromEditorBtn" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs font-medium transition flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Paste from Editor
+                </button>
+            </div>
+            <textarea 
+                id="fieldContentInput" 
+                class="field-textarea w-full h-48 px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 resize-none"
+                placeholder="Paste or type your field template here...
+
+Must have a single root element, e.g.:
+<example>
+    <input></input>
+    <output></output>
+</example>"
+                spellcheck="false"
+            ></textarea>
+            <p class="text-xs text-gray-500 mt-1">Must contain exactly one root field (can have nested sub-fields)</p>
+            <p id="fieldModalError" class="text-red-400 text-sm mt-2 hidden"></p>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="cancelFieldSaveBtn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm transition">Cancel</button>
+                <button id="confirmFieldSaveBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded text-sm font-medium transition">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete confirmation modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 rounded-lg p-6 w-96 border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold mb-2 text-red-400 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Delete Template
+            </h3>
+            <p class="text-gray-300 mb-4">Are you sure you want to delete "<span id="deleteTemplateName"></span>"?</p>
+            <div class="flex justify-end gap-2">
+                <button id="cancelDeleteBtn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm transition">Cancel</button>
+                <button id="confirmDeleteBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-medium transition">Delete</button>
+            </div>
+        </div>
+    </div>
+    <script src="./script.js"></script>
+</body>
+</html>

@@ -83,7 +83,6 @@ const apiKeyInput = document.getElementById('apiKeyInput');
 const preserveApiKeyCheckbox = document.getElementById('preserveApiKeyCheckbox');
 const modelInput = document.getElementById('modelInput');
 const baseUrlInput = document.getElementById('baseUrlInput');
-const saveApiSettingsBtn = document.getElementById('saveApiSettingsBtn');
 
 // Structure modal elements
 const saveStructureModal = document.getElementById('saveStructureModal');
@@ -1220,10 +1219,26 @@ async function handlePromptQuestions(input) {
         return;
     }
 
-    // Check API configuration
-    if (!apiSettings.apiKey || !apiSettings.model) {
-        promptQuestionsOutput.textContent = 'Please configure API settings in the API Setup tab first.\n\nGo to the "API Setup" tab and:\n1. Select your AI provider\n2. Enter your API key\n3. Specify the model name\n4. Save settings';
+    // Check API configuration - check both settings and form values
+    const hasApiKey = apiSettings.apiKey || apiKeyInput.value.trim();
+    const hasModel = apiSettings.model || modelInput.value.trim();
+    if (!hasApiKey || !hasModel) {
+        promptQuestionsOutput.textContent = 'Please configure API settings in the API Setup tab first.\n\nGo to the "API Setup" tab and:\n1. Select your AI provider\n2. Enter your API key\n3. Specify the model name';
         return;
+    }
+
+    // Ensure current form values are in apiSettings for the API call
+    if (!apiSettings.apiKey && apiKeyInput.value.trim()) {
+        apiSettings.apiKey = apiKeyInput.value.trim();
+    }
+    if (!apiSettings.model && modelInput.value.trim()) {
+        apiSettings.model = modelInput.value.trim();
+    }
+    if (!apiSettings.provider) {
+        apiSettings.provider = apiProviderSelect.value;
+    }
+    if (!apiSettings.baseUrl) {
+        apiSettings.baseUrl = baseUrlInput.value.trim() || null;
     }
 
     // Show processing indicator
@@ -1257,10 +1272,26 @@ async function handlePromptUnderstanding(input) {
         return;
     }
 
-    // Check API configuration
-    if (!apiSettings.apiKey || !apiSettings.model) {
-        promptUnderstandingOutput.textContent = 'Please configure API settings in the API Setup tab first.\n\nGo to the "API Setup" tab and:\n1. Select your AI provider\n2. Enter your API key\n3. Specify the model name\n4. Save settings';
+    // Check API configuration - check both settings and form values
+    const hasApiKey = apiSettings.apiKey || apiKeyInput.value.trim();
+    const hasModel = apiSettings.model || modelInput.value.trim();
+    if (!hasApiKey || !hasModel) {
+        promptUnderstandingOutput.textContent = 'Please configure API settings in the API Setup tab first.\n\nGo to the "API Setup" tab and:\n1. Select your AI provider\n2. Enter your API key\n3. Specify the model name';
         return;
+    }
+
+    // Ensure current form values are in apiSettings for the API call
+    if (!apiSettings.apiKey && apiKeyInput.value.trim()) {
+        apiSettings.apiKey = apiKeyInput.value.trim();
+    }
+    if (!apiSettings.model && modelInput.value.trim()) {
+        apiSettings.model = modelInput.value.trim();
+    }
+    if (!apiSettings.provider) {
+        apiSettings.provider = apiProviderSelect.value;
+    }
+    if (!apiSettings.baseUrl) {
+        apiSettings.baseUrl = baseUrlInput.value.trim() || null;
     }
 
     // Show processing indicator
@@ -1569,8 +1600,12 @@ promptUnderstandingInput.addEventListener('keydown', (e) => {
     }
 });
 
-// API Settings
-saveApiSettingsBtn.addEventListener('click', saveApiSettings);
+// API Settings - auto-save on field changes
+apiProviderSelect.addEventListener('change', saveApiSettings);
+apiKeyInput.addEventListener('input', saveApiSettings);
+preserveApiKeyCheckbox.addEventListener('change', saveApiSettings);
+modelInput.addEventListener('blur', saveApiSettings);
+baseUrlInput.addEventListener('blur', saveApiSettings);
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {

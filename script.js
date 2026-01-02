@@ -3,9 +3,14 @@ let structureTemplates = JSON.parse(localStorage.getItem('xmlPromptBuilder_struc
 let fieldTemplates = JSON.parse(localStorage.getItem('xmlPromptBuilder_fields') || '{}');
 let deleteTarget = { type: null, name: null };
 
+// Session persistence state
+let lastSavedContent = ''; // Track for efficient auto-save
+let autoSaveTimer = null; // 30-second auto-save timer
+
 let apiSettings = JSON.parse(localStorage.getItem('xmlPromptBuilder_apiSettings') || '{}');
-let bottomPanelVisible = true; // Start visible
-let activeBottomTab = 'prompt-questions';
+let bottomPanelVisible = JSON.parse(localStorage.getItem('xmlPromptBuilder_bottomPanelVisible') || 'true');
+let activeSidebarTab = localStorage.getItem('xmlPromptBuilder_activeSidebarTab') || 'structures';
+let activeBottomTab = localStorage.getItem('xmlPromptBuilder_activeBottomTab') || 'prompt-questions';
 let bottomPanelHeight = 300; // Default height in pixels
 let isResizing = false;
 
@@ -13,6 +18,29 @@ let isResizing = false;
 let tagPairMap = new Map(); // Maps tag positions to their pairs
 let isUpdatingPair = false; // Prevent infinite loops
 let lastTagEditInfo = null; // Track which tag was last edited
+
+// ==================== Session Persistence ====================
+
+// Save editor content to localStorage (efficient - only saves if changed)
+function saveEditorContent() {
+    try {
+        if (editor.value !== lastSavedContent) {
+            localStorage.setItem('xmlPromptBuilder_editorContent', editor.value);
+            lastSavedContent = editor.value;
+        }
+    } catch (error) {
+        console.warn('Failed to save editor content to localStorage:', error);
+    }
+}
+
+// Save UI state to localStorage
+function saveUIState(stateKey, value) {
+    try {
+        localStorage.setItem(`xmlPromptBuilder_${stateKey}`, typeof value === 'string' ? value : JSON.stringify(value));
+    } catch (error) {
+        console.warn(`Failed to save ${stateKey} to localStorage:`, error);
+    }
+}
 
 // ==================== DOM Elements ====================
 const editor = document.getElementById('editor');
@@ -710,6 +738,7 @@ structureTabBtn.addEventListener('click', () => {
     fieldTab.classList.add('hidden');
     structureSaveArea.classList.remove('hidden');
     fieldSaveArea.classList.add('hidden');
+    saveUIState('activeSidebarTab', 'structures');
 });
 
 fieldTabBtn.addEventListener('click', () => {
@@ -721,6 +750,7 @@ fieldTabBtn.addEventListener('click', () => {
     structureTab.classList.add('hidden');
     fieldSaveArea.classList.remove('hidden');
     structureSaveArea.classList.add('hidden');
+    saveUIState('activeSidebarTab', 'fields');
 });
 
 // ==================== Save Structure Templates ====================
@@ -1040,6 +1070,7 @@ function toggleBottomPanel() {
         setStatus('Bottom panel hidden');
     }
     updateToggleButtonIcon();
+    saveUIState('bottomPanelVisible', bottomPanelVisible);
 }
 
 function updateToggleButtonIcon() {
@@ -1130,6 +1161,7 @@ function switchBottomTab(tabName) {
             activeBottomTab = 'api-setup';
             break;
     }
+    saveUIState('activeBottomTab', activeBottomTab);
 }
 
 async function handlePromptQuestions(input) {
@@ -1368,7 +1400,9 @@ async function generateQuestions(promptText, userInput) {
         }
     ];
 
-    return await callAIAPI(messages);
+    const result = await callAIAPI(messages);
+    saveEditorContent(); // Auto-save after AI call
+    return result;
 }
 
 async function generateDefaultAnalysis(promptText) {
@@ -1383,7 +1417,9 @@ async function generateDefaultAnalysis(promptText) {
         }
     ];
 
-    return await callAIAPI(messages);
+    const result = await callAIAPI(messages);
+    saveEditorContent(); // Auto-save after AI call
+    return result;
 }
 
 async function generateAnalysis(promptText, focusInput) {
@@ -1398,7 +1434,9 @@ async function generateAnalysis(promptText, focusInput) {
         }
     ];
 
-    return await callAIAPI(messages);
+    const result = await callAIAPI(messages);
+    saveEditorContent(); // Auto-save after AI call
+    return result;
 }
 
 function loadApiSettings() {
@@ -1494,6 +1532,13 @@ document.addEventListener('keydown', (e) => {
 
 // ==================== Initialize ====================
 
+// Load session persistence state
+const savedEditorContent = localStorage.getItem('xmlPromptBuilder_editorContent');
+if (savedEditorContent !== null) {
+    editor.value = savedEditorContent;
+    lastSavedContent = savedEditorContent;
+}
+
 // Load bottom panel settings
 const savedHeight = localStorage.getItem('xmlPromptBuilder_bottomPanelHeight');
 if (savedHeight) {
@@ -1527,3 +1572,18 @@ if (Object.keys(fieldTemplates).length === 0) {
 }
 
 updateToggleButtonIcon(); // Set initial button icon
+
+// Initialize UI state based on saved values
+if (activeSidebarTab === 'fields') {
+    fieldTabBtn.click(); // Switch to field tab
+}
+// Bottom panel tab is already handled by switchBottomTab(activeBottomTab) above
+
+// Setup auto-save timer (30 seconds)
+autoSaveTimer = setInterval(saveEditorContent, 30000);
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    clearInterval(autoSaveTimer);
+    saveEditorContent(); // Final save on exit
+});

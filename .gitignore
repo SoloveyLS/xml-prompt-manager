@@ -4,3 +4,7 @@
 env/
 ENV/
 env.bak/
+
+# ClaudeCode
+.claude
+CLAUDE.md

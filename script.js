@@ -80,6 +80,7 @@ const promptUnderstandingOutput = document.getElementById('promptUnderstandingOu
 // API Setup Elements
 const apiProviderSelect = document.getElementById('apiProviderSelect');
 const apiKeyInput = document.getElementById('apiKeyInput');
+const preserveApiKeyCheckbox = document.getElementById('preserveApiKeyCheckbox');
 const modelInput = document.getElementById('modelInput');
 const baseUrlInput = document.getElementById('baseUrlInput');
 const saveApiSettingsBtn = document.getElementById('saveApiSettingsBtn');
@@ -317,17 +318,20 @@ editor.addEventListener('keydown', (e) => {
         return;
     }
 
-    // Tab key for indentation
+    // Tab key for indentation (Shift+Tab for un-indentation)
     if (e.key === 'Tab') {
+        e.preventDefault(); // Prevent default TAB focus cycling
+
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
         const text = editor.value;
+        const isUnindent = e.shiftKey;
 
         // Check if we have a selection spanning multiple lines
         const hasMultiLineSelection = start !== end && text.substring(start, end).includes('\n');
 
         if (hasMultiLineSelection) {
-            // Multi-line tab indentation
+            // Multi-line tab indentation/un-indentation
             const beforeSelection = text.substring(0, start);
             const selectedText = text.substring(start, end);
             const afterSelection = text.substring(end);
@@ -337,22 +341,67 @@ editor.addEventListener('keydown', (e) => {
             const selectedLines = selectedText.split('\n');
             const afterLines = afterSelection.split('\n');
 
-            // Add tab (4 spaces) to the beginning of each selected line
-            const indentedLines = selectedLines.map(line => '    ' + line);
+            let modifiedLines;
+            let indentChange = 0;
+
+            if (isUnindent) {
+                // Remove up to 4 spaces from the beginning of each selected line
+                modifiedLines = selectedLines.map(line => {
+                    const match = line.match(/^ {1,4}/);
+                    if (match) {
+                        indentChange -= match[0].length;
+                        return line.substring(match[0].length);
+                    }
+                    return line;
+                });
+                setStatus(`Un-indented ${selectedLines.length} lines`);
+            } else {
+                // Add tab (4 spaces) to the beginning of each selected line
+                modifiedLines = selectedLines.map(line => '    ' + line);
+                indentChange = 4;
+                setStatus(`Indented ${selectedLines.length} lines`);
+            }
 
             const newText = beforeLines.slice(0, -1).join('\n') + '\n' +
-                           indentedLines.join('\n') + '\n' +
+                           modifiedLines.join('\n') + '\n' +
                            (afterLines.length > 0 ? afterLines[0] : '') +
                            (afterLines.length > 1 ? '\n' + afterLines.slice(1).join('\n') : '');
 
             editor.value = newText;
 
             // Preserve (shift) the selection range
-            const indentedSelectionStart = start + 4;
-            const indentedSelectionEnd = start + indentedLines.join('\n').length + 4;
-            editor.setSelectionRange(indentedSelectionStart, indentedSelectionEnd);
+            let newSelectionStart = start;
+            let newSelectionEnd = end + (indentChange * selectedLines.length);
 
-            setStatus(`Indented ${selectedLines.length} lines`);
+            // Adjust for the fact that we're modifying the text
+            if (isUnindent) {
+                // For un-indent, we need to move selection start left by removed spaces
+                const spacesRemoved = selectedLines.reduce((total, line) => {
+                    const match = line.match(/^ {1,4}/);
+                    return total + (match ? match[0].length : 0);
+                }, 0);
+                newSelectionStart = Math.max(0, start - spacesRemoved);
+                newSelectionEnd = Math.max(0, end - spacesRemoved);
+            }
+
+            editor.setSelectionRange(newSelectionStart, newSelectionEnd);
+
+        } else if (isUnindent) {
+            // Single line un-indentation - remove up to 4 spaces before cursor
+            const before = text.substring(0, start);
+            const after = text.substring(end);
+
+            // Check if there are spaces before the cursor
+            const spaceMatch = before.match(/ {1,4}$/);
+            if (spaceMatch) {
+                const spacesToRemove = spaceMatch[0].length;
+                const newBefore = before.substring(0, before.length - spacesToRemove);
+                editor.value = newBefore + after;
+                editor.setSelectionRange(start - spacesToRemove, start - spacesToRemove);
+                setStatus(`Removed ${spacesToRemove} spaces`);
+            } else {
+                setStatus('No indentation to remove');
+            }
         } else {
             // Single line or no selection - insert 4 spaces
             const spaces = '    ';
@@ -1442,7 +1491,10 @@ async function generateAnalysis(promptText, focusInput) {
 function loadApiSettings() {
     const stored = JSON.parse(localStorage.getItem('xmlPromptBuilder_apiSettings') || '{}');
 
-    // Load stored settings but don't show API key for security
+    // Restore checkbox state, or auto-enable if API key was previously stored
+    preserveApiKeyCheckbox.checked = stored.preserveApiKey || (stored.apiKey ? true : false);
+
+    // Load stored settings properly restoring all fields
     if (stored.provider) {
         apiProviderSelect.value = stored.provider;
         apiSettings.provider = stored.provider;
@@ -1455,33 +1507,38 @@ function loadApiSettings() {
         baseUrlInput.value = stored.baseUrl;
         apiSettings.baseUrl = stored.baseUrl;
     }
-
-    // If we have an actual API key saved (from explicitly saving it), show dots
-    if (stored.hasApiKey && !apiSettings.apiKey) {
-        apiKeyInput.value = '••••••••'; // Show that key is configured
+    // Handle API key restoration (either from new format or backwards compatibility)
+    if (stored.apiKey && preserveApiKeyCheckbox.checked) {
+        apiSettings.apiKey = stored.apiKey;
+        apiKeyInput.value = '••••••••'; // Show dots for security but preserve the key in settings
+    } else if (stored.hasApiKey || stored.apiKey) {
+        // Show that a key was configured previously (backwards compatibility)
+        apiKeyInput.value = '••••••••';
+        // Note: apiSettings.apiKey remains undefined until user saves again with preservation enabled
     }
-
-    // Show current values
-    if (apiSettings.apiKey) apiKeyInput.value = '••••••••'; // Don't show actual key
 }
 
 function saveApiSettings() {
     const settings = {
         provider: apiProviderSelect.value,
-        apiKey: apiKeyInput.value,
         model: modelInput.value,
-        baseUrl: baseUrlInput.value ? baseUrlInput.value : null
+        baseUrl: baseUrlInput.value ? baseUrlInput.value : null,
+        preserveApiKey: preserveApiKeyCheckbox.checked
     };
 
-    // Save to localStorage (but we won't save the API key for security)
-    const settingsForStorage = { ...settings };
-    if (settingsForStorage.apiKey) {
-        settingsForStorage.hasApiKey = true;
-        delete settingsForStorage.apiKey; // Don't store actual key
+    if (preserveApiKeyCheckbox.checked) {
+        settings.apiKey = apiKeyInput.value;
+    } else if (apiKeyInput.value) {
+        settings.hasApiKey = true; // Mark that key was entered previously
     }
 
-    localStorage.setItem('xmlPromptBuilder_apiSettings', JSON.stringify(settingsForStorage));
-    apiSettings = settings;
+    localStorage.setItem('xmlPromptBuilder_apiSettings', JSON.stringify(settings));
+    apiSettings = {
+        provider: settings.provider,
+        model: settings.model,
+        baseUrl: settings.baseUrl,
+        apiKey: preserveApiKeyCheckbox.checked ? apiKeyInput.value : undefined
+    };
     setStatus('API settings saved');
 }
 

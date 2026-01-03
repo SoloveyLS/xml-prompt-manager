@@ -1,0 +1,574 @@
+// ==================== Prettify / Lessen ====================
+lessenBtn.addEventListener('click', () => {
+    // Convert actual newlines to literal "\n"
+    editor.value = lessenXML(editor.value);
+    modeIndicator.textContent = 'Mode: Lessened';
+    setStatus('Converted newlines to literal \\n');
+});
+
+prettifyBtn.addEventListener('click', () => {
+    // 1. Expand literal "\n" back to real newlines (protecting quotes)
+    // 2. Apply XML Indentation
+    let text = editor.value;
+    text = restoreNewlines(text);
+    text = prettifyXML(text);
+    editor.value = text;
+    modeIndicator.textContent = 'Mode: Prettified';
+    setStatus('Restored newlines and indented XML');
+});
+
+function lessenXML(xml) {
+    // Replace actual newline characters with literal "\n"
+    // Note: This creates a single long line (unless word wrap is on in CSS)
+    return xml.replace(/\n/g, '\\n');
+}
+
+function restoreNewlines(text) {
+    // Converts literal "\n" back to real newlines,
+    // UNLESS they appear inside quotes (', ", `, ```).
+
+    let res = "";
+    let i = 0;
+    let len = text.length;
+    let stack = null; // null, "'", '"', '`', '```'
+
+    while (i < len) {
+        // Check for triple backtick
+        if (text.startsWith('```', i)) {
+            res += '```';
+            i += 3;
+            if (stack === '```') stack = null;
+            else if (stack === null) stack = '```';
+            continue;
+        }
+
+        let char = text[i];
+
+        // Handle Escaping inside quotes (to skip \", etc)
+        if (stack !== null && char === '\\') {
+            res += char + (text[i+1] || '');
+            i += 2;
+            continue;
+        }
+
+        // Handle State Change (Start/End quote)
+        // Only enter quote state if we aren't already in one (stack === null)
+        if (stack === null && (char === '"' || char === "'" || char === '`')) {
+            stack = char;
+            res += char;
+            i++;
+            continue;
+        }
+        // Exit quote state if we find the matching closer
+        if (stack === char) {
+            stack = null;
+            res += char;
+            i++;
+            continue;
+        }
+
+        // Handle Transformation (Only if NOT in a quote)
+        // Look for literal backslash followed by 'n'
+        if (stack === null && char === '\\' && text[i+1] === 'n') {
+            res += '\n'; // Convert to real newline
+            i += 2;
+            continue;
+        }
+
+        res += char;
+        i++;
+    }
+    return res;
+}
+
+function prettifyXML(xml) {
+    // Preserve original line breaks in content for multiline detection
+    let text = xml.trim();
+    if (!text) return '';
+
+    const INDENT = '    '; // 4 spaces
+
+    // Tokenize the XML while preserving content structure
+    const tokens = [];
+    let i = 0;
+
+    while (i < text.length) {
+        if (text[i] === '<') {
+            const end = text.indexOf('>', i);
+            if (end === -1) break;
+            const tag = text.substring(i, end + 1);
+            const isClosing = tag.startsWith('</');
+            const isSelfClosing = tag.endsWith('/>');
+            const match = tag.match(/<\/?([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (match) {
+                tokens.push({
+                    type: 'tag',
+                    value: tag,
+                    isClosing,
+                    isSelfClosing,
+                    tagName: match[1]
+                });
+            }
+            i = end + 1;
+        } else {
+            const nextTag = text.indexOf('<', i);
+            const content = nextTag === -1 ? text.substring(i) : text.substring(i, nextTag);
+            if (content) {
+                tokens.push({ type: 'text', value: content });
+            }
+            i = nextTag === -1 ? text.length : nextTag;
+        }
+    }
+
+    // Format tokens
+    let result = '';
+    let indent = 0;
+
+    for (let j = 0; j < tokens.length; j++) {
+        const token = tokens[j];
+
+        if (token.type === 'tag' && !token.isClosing) {
+            // Opening tag
+            if (result && !result.endsWith('\n')) result += '\n';
+            result += INDENT.repeat(indent) + token.value;
+
+            if (token.isSelfClosing) continue;
+
+            // Look ahead: check for <tag>single-line-text</tag> pattern
+            const next = tokens[j + 1];
+            const nextNext = tokens[j + 2];
+
+            if (next && next.type === 'text' &&
+                nextNext && nextNext.type === 'tag' &&
+                nextNext.isClosing && nextNext.tagName === token.tagName) {
+
+                const trimmed = next.value.trim();
+                const hasNewlines = next.value.includes('\n');
+
+                if (trimmed && !hasNewlines) {
+                    // Single line content - keep inline: <tag>text</tag>
+                    result += trimmed + nextNext.value;
+                    j += 2; // Skip text and closing tag
+                    continue;
+                }
+            }
+
+            indent++;
+
+        } else if (token.type === 'tag' && token.isClosing) {
+            // Closing tag
+            indent = Math.max(0, indent - 1);
+            if (result && !result.endsWith('\n')) result += '\n';
+            result += INDENT.repeat(indent) + token.value;
+
+        } else if (token.type === 'text') {
+            // Text content
+            const trimmed = token.value.trim();
+            if (!trimmed) continue;
+
+            const hasNewlines = token.value.includes('\n');
+
+            if (hasNewlines) {
+                // Multiline content - each line on its own line with indentation
+                const lines = trimmed.split('\n');
+                for (const line of lines) {
+                    const lineTrimmed = line.trim(); // Optional: we could preserve inner indent
+                    // For protected quotes (lines kept together via \n literal), they will appear as one line here
+                    if (lineTrimmed) {
+                        if (result && !result.endsWith('\n')) result += '\n';
+                        result += INDENT.repeat(indent) + line; // Keep original internal spacing?
+                    }
+                }
+            } else {
+                // Single line that wasn't caught by inline pattern (e.g., between nested tags)
+                if (result && !result.endsWith('\n')) result += '\n';
+                result += INDENT.repeat(indent) + trimmed;
+            }
+        }
+    }
+
+    return result.trim();
+}
+
+// ==================== Indentation Functions ====================
+
+/**
+ * Calculate the number of spaces needed to reach the next indentation level
+ * @param {string} line - The line text
+ * @param {number} cursorPos - The cursor position within the line (0-based)
+ * @param {boolean} toNext - Whether to go to next level (true) or previous level (false)
+ * @returns {number} Number of spaces to add/remove
+ */
+function calculateIndentationSpaces(line, cursorPos, toNext = true) {
+    if (!line) return 4; // Default indent for empty line
+
+    // Find the position in the line where we want to calculate indentation
+    let indentPos = cursorPos;
+
+    // If we're at the beginning or there are no spaces before us, use beginning of line
+    const beforeCursor = line.substring(0, cursorPos);
+    const afterCursor = line.substring(cursorPos);
+
+    // Count leading spaces on the line
+    const leadingSpacesMatch = line.match(/^(\s*)/);
+    const leadingSpaces = leadingSpacesMatch ? leadingSpacesMatch[1].length : 0;
+
+    // If we're in the leading whitespace area, calculate from start of line
+    if (indentPos <= leadingSpaces) {
+        const currentLevel = Math.floor(leadingSpaces / 4);
+        const targetLevel = toNext ? currentLevel + 1 : Math.max(0, currentLevel - 1);
+        const targetSpaces = targetLevel * 4;
+        return targetSpaces - leadingSpaces;
+    }
+
+    // Find the indentation level after the last non-space character before cursor
+    let lastNonSpaceBefore = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+        if (line[i] !== ' ') {
+            lastNonSpaceBefore = i;
+            break;
+        }
+    }
+
+    if (lastNonSpaceBefore !== -1) {
+        // Count spaces immediately after the last non-space character
+        let spaceCount = 0;
+        for (let i = lastNonSpaceBefore + 1; i < cursorPos; i++) {
+            if (line[i] === ' ') {
+                spaceCount++;
+            } else {
+                break;
+            }
+        }
+
+        // Calculate indentation level
+        const currentLevel = Math.floor(spaceCount / 4);
+        const targetLevel = toNext ? currentLevel + 1 : Math.max(0, currentLevel - 1);
+        const targetSpaces = targetLevel * 4;
+        return targetSpaces - spaceCount;
+    }
+
+    // Fallback: treat as leading indentation
+    return 4;
+}
+
+/**
+ * Find all lines that are affected by a selection (including partial selections)
+ * @param {string} text - The full text
+ * @param {number} start - Selection start position
+ * @param {number} end - Selection end position
+ * @returns {Array} Array of line objects: {start: number, end: number, content: string, selectionStart: number, selectionEnd: number}
+ */
+function getSelectedLines(text, start, end) {
+    if (start === end) {
+        // No selection - just get the current line
+        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        const lineEnd = text.indexOf('\n', start);
+        if (lineEnd === -1) lineEnd = text.length;
+
+        return [{
+            start: lineStart,
+            end: lineEnd,
+            content: text.substring(lineStart, lineEnd),
+            selectionStart: start - lineStart,
+            selectionEnd: end - lineStart
+        }];
+    }
+
+    const lines = [];
+    const allLines = text.split('\n');
+
+    // Find positions of line breaks
+    const lineBreaks = [0];
+    let pos = 0;
+    while (pos < text.length) {
+        const nextBreak = text.indexOf('\n', pos);
+        if (nextBreak === -1) break;
+        lineBreaks.push(nextBreak + 1);
+        pos = nextBreak + 1;
+    }
+    lineBreaks.push(text.length);
+
+    // Find lines that have any part of the selection
+    for (let i = 0; i < lineBreaks.length - 1; i++) {
+        const lineStart = lineBreaks[i];
+        const lineEnd = lineBreaks[i + 1] - 1; // Exclude the \n
+
+        // Check if this line intersects with the selection
+        if (lineStart <= end && lineEnd >= start) {
+            const lineContent = allLines[i];
+            const selectionStartInLine = Math.max(0, start - lineStart);
+            const selectionEndInLine = Math.min(lineContent.length, end - lineStart);
+
+            lines.push({
+                start: lineStart,
+                end: lineEnd,
+                content: lineContent,
+                selectionStart: selectionStartInLine,
+                selectionEnd: selectionEndInLine,
+                lineIndex: i
+            });
+        }
+    }
+
+    return lines;
+}
+
+/**
+ * Adjust indentation of the selected lines
+ * @param {string} text - The full text
+ * @param {Array} selectedLines - Array of line objects from getSelectedLines
+ * @param {number} indentChange - Number of spaces to add/remove (positive = indent, negative = unindent)
+ * @returns {Object} {newText: string, newStart: number, newEnd: number}
+ */
+function adjustIndentation(text, selectedLines, indentChange) {
+    if (!selectedLines.length || indentChange === 0) {
+        return { newText: text, newStart: editor.selectionStart, newEnd: editor.selectionEnd };
+    }
+
+    let resultText = '';
+    let lineIndex = 0;
+    let totalAddedSpaces = 0;
+
+    const allTextLines = text.split('\n');
+    const lineCount = allTextLines.length;
+
+    for (let i = 0; i < lineCount; i++) {
+        const line = allTextLines[i];
+        let modifiedLine = line;
+
+        // Check if this line needs indentation adjustment
+        const selectedLine = selectedLines.find(sl => sl.lineIndex === i);
+        if (selectedLine) {
+            if (indentChange > 0) {
+                // Add spaces at the beginning
+                modifiedLine = ' '.repeat(indentChange) + line;
+                totalAddedSpaces += indentChange;
+            } else {
+                // Remove spaces from the beginning (up to the amount requested)
+                const spacesToRemove = Math.min(-indentChange, line.length - line.trimStart().length);
+                modifiedLine = line.substring(spacesToRemove);
+                totalAddedSpaces -= spacesToRemove;
+            }
+        }
+
+        // Add the line to result
+        resultText += modifiedLine;
+        if (i < lineCount - 1) {
+            resultText += '\n';
+        }
+        lineIndex++;
+    }
+
+    // Calculate new selection positions
+    let newStart = editor.selectionStart;
+    let newEnd = editor.selectionEnd;
+
+    // Adjust selection based on indentation changes
+    const startLine = selectedLines[0]; // First selected line affects start position
+    if (newStart > startLine.start) {
+        if (indentChange > 0) {
+            // Adding spaces - selection moves right
+            newStart += indentChange;
+        } else {
+            // Removing spaces - selection moves left, but not before line start
+            const adjustment = Math.min(-indentChange, newStart - startLine.start);
+            newStart = Math.max(startLine.start, newStart - adjustment);
+        }
+    }
+
+    // Adjust end position based on all lines (for multi-line selections)
+    if (newEnd > startLine.start) {
+        let totalAdjustment = 0;
+        for (const line of selectedLines) {
+            if (line.start < newEnd) {
+                if (indentChange > 0) {
+                    totalAdjustment += indentChange;
+                } else {
+                    const lineSpaces = line.content.length - line.content.trimStart().length;
+                    const spacesToRemove = Math.min(-indentChange, lineSpaces);
+                    totalAdjustment -= spacesToRemove;
+                }
+            }
+        }
+        newEnd += totalAdjustment;
+    }
+
+    return {
+        newText: resultText,
+        newStart: Math.max(0, newStart),
+        newEnd: Math.max(newStart, newEnd)
+    };
+}
+
+// ==================== Keyboard Handlers ====================
+editor.addEventListener('keydown', (e) => {
+    // Ctrl+/ to toggle bottom panel (like VSCode)
+    if (e.ctrlKey && e.key === '/') {
+        e.preventDefault();
+        setTimeout(() => toggleBottomPanel(), 0);
+        return;
+    }
+
+    // Tab key for indentation (Shift+Tab for un-indentation) and Enter for line continuation
+    if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault(); // Prevent default TAB focus cycling
+
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const text = editor.value;
+        const isUnindent = e.shiftKey && e.key === 'Tab';
+
+        // Handle Enter key for maintaining indentation
+        if (e.key === 'Enter') {
+            // Find the current line start and get its indentation
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = text.substring(lineStart, start);
+            const indentationMatch = currentLine.match(/^(\s*)/);
+            const currentIndentation = indentationMatch ? indentationMatch[1] : '';
+
+            // Insert newline with same indentation
+            const before = text.substring(0, start);
+            const after = text.substring(end);
+            const newText = before + '\n' + currentIndentation + after;
+            editor.value = newText;
+
+            // Position cursor after the indentation
+            const newCursorPos = start + 1 + currentIndentation.length;
+            editor.setSelectionRange(newCursorPos, newCursorPos);
+            setStatus('New line with preserved indentation');
+            return;
+        }
+
+        // Get the selected lines
+        const selectedLines = getSelectedLines(text, start, end);
+        const hasSelection = start !== end;
+
+        // Determine the indentation change
+        let indentChange = 0;
+
+        if (isUnindent) {
+            indentChange = -4; // Remove one indentation level
+        } else {
+            if (hasSelection) {
+                indentChange = 4; // Add one indentation level for selections
+            } else {
+                // For no selection, calculate proper indentation based on cursor position
+                const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+                const currentLine = text.substring(lineStart);
+                const cursorInLine = start - lineStart;
+
+                indentChange = calculateIndentationSpaces(currentLine, cursorInLine, true);
+            }
+        }
+
+        // Apply indentation if there's a change needed
+        if (indentChange !== 0) {
+            try {
+                const result = adjustIndentation(text, selectedLines, indentChange);
+                editor.value = result.newText;
+                editor.setSelectionRange(result.newStart, result.newEnd);
+            } catch (error) {
+                console.error('Tab indentation error:', error);
+                // Fallback: just insert 4 spaces
+                const spaces = indentChange > 0 ? '    ' : '';
+                editor.value = text.substring(0, start) + spaces + text.substring(end);
+                editor.setSelectionRange(start + spaces.length, start + spaces.length);
+            }
+
+            if (hasSelection) {
+                const action = indentChange > 0 ? 'indented' : 'un-indented';
+                setStatus(`${action} ${selectedLines.length} lines`);
+            } else if (indentChange > 0) {
+                setStatus(`Inserted ${indentChange} spaces`);
+            } else {
+                setStatus(`Removed ${-indentChange} spaces`);
+            }
+        } else if (hasSelection && isUnindent) {
+            setStatus('No indentation to remove');
+        }
+        return;
+    }
+
+    // Alt + Up/Down to move lines
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        moveSelection(e.key === 'ArrowUp' ? -1 : 1);
+        return;
+    }
+
+    // Space to underscore in tags
+    if (e.key === ' ') {
+        const cursorPos = editor.selectionStart;
+        const text = editor.value;
+        const beforeCursor = text.substring(0, cursorPos);
+
+        // Check if we're inside a tag name (opening or closing)
+        const inOpeningTag = beforeCursor.match(/<([a-zA-Z_][a-zA-Z0-9_]*)$/);
+        const inClosingTag = beforeCursor.match(/<\/([a-zA-Z_][a-zA-Z0-9_]*)$/);
+
+        if (inOpeningTag || inClosingTag) {
+            e.preventDefault();
+            const newText = text.substring(0, cursorPos) + '_' + text.substring(cursorPos);
+            editor.value = newText;
+            editor.setSelectionRange(cursorPos + 1, cursorPos + 1);
+            setStatus('Space converted to underscore in tag name');
+
+            // Trigger sync after underscore insertion
+            setTimeout(() => performLiveSync(), 10);
+        }
+    }
+});
+
+function moveSelection(direction) {
+    const text = editor.value;
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+
+    // Find start of the line containing selection start
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+
+    // Find end of the line containing selection end
+    let lineEnd = text.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = text.length;
+
+    const contentToMove = text.substring(lineStart, lineEnd);
+
+    // Calculate positions of lines before or after
+    if (direction === -1) { // Move Up
+        // If we are at the top, cannot move up
+        if (lineStart === 0) return;
+
+        const prevLineStart = text.lastIndexOf('\n', lineStart - 2) + 1;
+        const prevLineEnd = lineStart - 1;
+        const prevLineContent = text.substring(prevLineStart, prevLineEnd);
+
+        const newText = text.substring(0, prevLineStart) +
+                        contentToMove + '\n' + prevLineContent +
+                        text.substring(lineEnd);
+
+        editor.value = newText;
+        // Restore selection
+        const newStart = prevLineStart + (start - lineStart);
+        const newEnd = prevLineStart + contentToMove.length - (lineEnd - end);
+        editor.setSelectionRange(newStart, newEnd);
+
+    } else { // Move Down
+        // If we are at the bottom, cannot move down
+        if (lineEnd === text.length) return;
+
+        const nextLineStart = lineEnd + 1;
+        let nextLineEnd = text.indexOf('\n', nextLineStart);
+        if (nextLineEnd === -1) nextLineEnd = text.length;
+        const nextLineContent = text.substring(nextLineStart, nextLineEnd);
+
+        const newText = text.substring(0, lineStart) +
+                        nextLineContent + '\n' + contentToMove +
+                        text.substring(nextLineEnd);
+
+        editor.value = newText;
+        // Restore selection
+        const offset = nextLineContent.length + 1;
+        editor.setSelectionRange(start + offset, end + offset);
+    }
+}

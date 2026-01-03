@@ -314,18 +314,39 @@ editor.addEventListener('keydown', (e) => {
     // Ctrl+/ to toggle bottom panel (like VSCode)
     if (e.ctrlKey && e.key === '/') {
         e.preventDefault();
-        toggleBottomPanel();
+        setTimeout(() => toggleBottomPanel(), 0);
         return;
     }
 
-    // Tab key for indentation (Shift+Tab for un-indentation)
-    if (e.key === 'Tab') {
+    // Tab key for indentation (Shift+Tab for un-indentation) and Enter for line continuation
+    if (e.key === 'Tab' || e.key === 'Enter') {
         e.preventDefault(); // Prevent default TAB focus cycling
 
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
         const text = editor.value;
-        const isUnindent = e.shiftKey;
+        const isUnindent = e.shiftKey && e.key === 'Tab';
+
+        // Handle Enter key for maintaining indentation
+        if (e.key === 'Enter') {
+            // Find the current line start and get its indentation
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = text.substring(lineStart, start);
+            const indentationMatch = currentLine.match(/^(\s*)/);
+            const currentIndentation = indentationMatch ? indentationMatch[1] : '';
+
+            // Insert newline with same indentation
+            const before = text.substring(0, start);
+            const after = text.substring(end);
+            const newText = before + '\n' + currentIndentation + after;
+            editor.value = newText;
+
+            // Position cursor after the indentation
+            const newCursorPos = start + 1 + currentIndentation.length;
+            editor.setSelectionRange(newCursorPos, newCursorPos);
+            setStatus('New line with preserved indentation');
+            return;
+        }
 
         // Check if we have a selection spanning multiple lines
         const hasMultiLineSelection = start !== end && text.substring(start, end).includes('\n');
@@ -1642,11 +1663,6 @@ document.addEventListener('keydown', (e) => {
         deleteModal.classList.add('hidden');
     }
 
-    // Ctrl+/ to toggle bottom panel (like VSCode)
-    if (e.ctrlKey && e.key === '/') {
-        e.preventDefault();
-        toggleBottomPanel();
-    }
 });
 
 // ==================== Initialize ====================

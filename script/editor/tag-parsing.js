@@ -102,10 +102,12 @@ editor.addEventListener('input', (e) => {
         if (beforeCursor.endsWith('<>')) {
             const tagName = 'tag_name';
             const startPos = cursorPos - 2;
-            const newText = text.substring(0, startPos) +
-                            `<${tagName}></${tagName}>` +
-                            afterCursor;
-            editor.value = newText;
+
+            // Use execCommand to replace the '<>' with full tag pair while preserving undo
+            editor.focus();
+            editor.setSelectionRange(startPos, cursorPos); // Select '<>'
+            document.execCommand('insertText', false, `<${tagName}></${tagName}>`);
+
             // Select the tag name for easy editing
             const selectStart = startPos + 1;
             const selectEnd = selectStart + tagName.length;
@@ -123,9 +125,10 @@ editor.addEventListener('input', (e) => {
             if (!closingTagPattern.test(afterCursor)) {
                 const beforeTag = beforeCursor.slice(0, -openTagMatch[0].length);
                 if (!beforeTag.endsWith('/')) {
-                    const newText = beforeCursor + `</${tagName}>` + afterCursor;
-                    editor.value = newText;
+                    // Insert the closing tag at cursor position while preserving undo
+                    editor.focus();
                     editor.setSelectionRange(cursorPos, cursorPos);
+                    document.execCommand('insertText', false, `</${tagName}>`);
                 }
             }
         }
@@ -181,9 +184,10 @@ function performLiveSync() {
     // Sync the pair tag
     isUpdatingPair = true;
 
-    const before = text.substring(0, pairTag.nameStart);
-    const after = text.substring(pairTag.nameEnd);
-    editor.value = before + editedName + after;
+    // Use execCommand to update the pair tag while preserving undo history
+    editor.focus();
+    editor.setSelectionRange(pairTag.nameStart, pairTag.nameEnd);
+    document.execCommand('insertText', false, editedName);
 
     // Adjust cursor position if the pair tag was before the cursor
     let newCursorPos = cursorPos;

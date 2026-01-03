@@ -205,14 +205,8 @@ confirmDeleteBtn.addEventListener('click', () => {
 
 // ==================== Utilities ====================
 function insertAtCursor(text) {
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const before = text.substring(0, start);
-    const after = text.substring(end);
-    editor.value = before + text + after;
-    const newPos = start + text.length;
-    editor.setSelectionRange(newPos, newPos);
     editor.focus();
+    document.execCommand('insertText', false, text);
 }
 
 window.setStatus = function(message) {

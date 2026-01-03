@@ -1,7 +1,10 @@
 // ==================== Prettify / Lessen ====================
 lessenBtn.addEventListener('click', () => {
     // Convert actual newlines to literal "\n"
-    editor.value = lessenXML(editor.value);
+    const lessenedText = lessenXML(editor.value);
+    editor.focus();
+    editor.setSelectionRange(0, editor.value.length);
+    document.execCommand('insertText', false, lessenedText);
     modeIndicator.textContent = 'Mode: Lessened';
     setStatus('Converted newlines to literal \\n');
 });
@@ -12,7 +15,9 @@ prettifyBtn.addEventListener('click', () => {
     let text = editor.value;
     text = restoreNewlines(text);
     text = prettifyXML(text);
-    editor.value = text;
+    editor.focus();
+    editor.setSelectionRange(0, editor.value.length);
+    document.execCommand('insertText', false, text);
     modeIndicator.textContent = 'Mode: Prettified';
     setStatus('Restored newlines and indented XML');
 });
@@ -208,6 +213,18 @@ editor.addEventListener('keydown', (e) => {
         const text = editor.value;
         const isUnindent = e.shiftKey && e.key === 'Tab';
 
+        // Function to insert text while preserving undo history
+        function insertTextWithUndo(textToInsert, replaceCount = 0) {
+            editor.focus();
+            if (replaceCount > 0) {
+                // Select the text to replace
+                editor.setSelectionRange(start - replaceCount, start);
+            } else {
+                editor.setSelectionRange(start, end);
+            }
+            document.execCommand('insertText', false, textToInsert);
+        }
+
         // Handle Enter key for maintaining indentation
         if (e.key === 'Enter') {
             // Find the current line start and get its indentation
@@ -217,14 +234,8 @@ editor.addEventListener('keydown', (e) => {
             const currentIndentation = indentationMatch ? indentationMatch[1] : '';
 
             // Insert newline with same indentation
-            const before = text.substring(0, start);
-            const after = text.substring(end);
-            const newText = before + '\n' + currentIndentation + after;
-            editor.value = newText;
+            insertTextWithUndo('\n' + currentIndentation);
 
-            // Position cursor after the indentation
-            const newCursorPos = start + 1 + currentIndentation.length;
-            editor.setSelectionRange(newCursorPos, newCursorPos);
             setStatus('New line with preserved indentation');
             return;
         }
@@ -233,7 +244,10 @@ editor.addEventListener('keydown', (e) => {
         const hasMultiLineSelection = start !== end && text.substring(start, end).includes('\n');
 
         if (hasMultiLineSelection) {
-            // Multi-line tab indentation/un-indentation
+            // Multi-line tab indentation/un-indentation requires direct manipulation for complex replacements
+            // This still breaks undo history for multi-line operations, but single-line operations are preserved
+            e.preventDefault();
+
             const beforeSelection = text.substring(0, start);
             const selectedText = text.substring(start, end);
             const afterSelection = text.substring(end);
@@ -291,15 +305,12 @@ editor.addEventListener('keydown', (e) => {
         } else if (isUnindent) {
             // Single line un-indentation - remove up to 4 spaces before cursor
             const before = text.substring(0, start);
-            const after = text.substring(end);
 
             // Check if there are spaces before the cursor
             const spaceMatch = before.match(/ {1,4}$/);
             if (spaceMatch) {
                 const spacesToRemove = spaceMatch[0].length;
-                const newBefore = before.substring(0, before.length - spacesToRemove);
-                editor.value = newBefore + after;
-                editor.setSelectionRange(start - spacesToRemove, start - spacesToRemove);
+                insertTextWithUndo('', spacesToRemove);
                 setStatus(`Removed ${spacesToRemove} spaces`);
             } else {
                 setStatus('No indentation to remove');
@@ -314,11 +325,7 @@ editor.addEventListener('keydown', (e) => {
             const spacesToAdd = 4 - (currentIndent % 4);
             const spaces = ' '.repeat(spacesToAdd);
 
-            const before = text.substring(0, start);
-            const after = text.substring(end);
-
-            editor.value = before + spaces + after;
-            editor.setSelectionRange(start + spaces.length, start + spaces.length);
+            insertTextWithUndo(spaces);
             setStatus(`Inserted ${spacesToAdd} spaces`);
         }
     }

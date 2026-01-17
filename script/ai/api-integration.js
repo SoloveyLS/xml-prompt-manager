@@ -1,5 +1,5 @@
 // ==================== Prompt Question Functions ====================
-function handlePromptQuestions(input) {
+async function handlePromptQuestions(input) {
     const promptText = editor.value.trim();
     if (!promptText) {
         promptQuestionsOutput.textContent = 'No prompt content found in editor.';
@@ -15,7 +15,7 @@ function handlePromptQuestions(input) {
     }
 
     // Ensure current form values are in apiSettings for the API call
-    if (!apiSettings.apiKey && apiKeyInput.value.trim()) {
+    if (!apiSettings.apiKey && apiKeyInput.value.trim() && apiKeyInput.value !== '••••••••') {
         apiSettings.apiKey = apiKeyInput.value.trim();
     }
     if (!apiSettings.model && modelInput.value.trim()) {
@@ -36,10 +36,10 @@ function handlePromptQuestions(input) {
         let questions;
         if (input.trim()) {
             // Generate specific questions based on user input
-            questions = generateQuestions(promptText, input.trim());
+            questions = await generateQuestions(promptText, input.trim());
         } else {
             // Generate general questions about the prompt
-            questions = generateDefaultQuestions(promptText);
+            questions = await generateDefaultQuestions(promptText);
         }
 
         promptQuestionsOutput.textContent = questions;
@@ -52,7 +52,7 @@ function handlePromptQuestions(input) {
     }
 }
 
-function handlePromptUnderstanding(input) {
+async function handlePromptUnderstanding(input) {
     const promptText = editor.value.trim();
     if (!promptText) {
         promptUnderstandingOutput.textContent = 'No prompt content found in editor.';
@@ -68,7 +68,7 @@ function handlePromptUnderstanding(input) {
     }
 
     // Ensure current form values are in apiSettings for the API call
-    if (!apiSettings.apiKey && apiKeyInput.value.trim()) {
+    if (!apiSettings.apiKey && apiKeyInput.value.trim() && apiKeyInput.value !== '••••••••') {
         apiSettings.apiKey = apiKeyInput.value.trim();
     }
     if (!apiSettings.model && modelInput.value.trim()) {
@@ -89,10 +89,10 @@ function handlePromptUnderstanding(input) {
         let analysis;
         if (input.trim()) {
             // Generate specific analysis based on user focus
-            analysis = generateAnalysis(promptText, input.trim());
+            analysis = await generateAnalysis(promptText, input.trim());
         } else {
             // Generate default analysis of prompt
-            analysis = generateDefaultAnalysis(promptText);
+            analysis = await generateDefaultAnalysis(promptText);
         }
 
         promptUnderstandingOutput.textContent = analysis;
@@ -149,7 +149,7 @@ async function callOpenAI(messages, baseUrl) {
         body: JSON.stringify({
             model: apiSettings.model,
             messages: messages,
-            max_tokens: 1000,
+            max_tokens: 3000,
             temperature: 0.3
         })
     });
@@ -173,7 +173,7 @@ async function callAnthropic(messages, baseUrl) {
         body: JSON.stringify({
             model: apiSettings.model,
             messages: messages,
-            max_tokens: 1000,
+            max_tokens: 3000,
             temperature: 0.3
         })
     });
@@ -202,7 +202,7 @@ async function callGoogle(messages, baseUrl) {
             contents: contents,
             generationConfig: {
                 temperature: 0.3,
-                maxOutputTokens: 1000
+                maxOutputTokens: 3000
             }
         })
     });
@@ -227,7 +227,7 @@ async function callOllama(messages, baseUrl) {
             stream: false,
             options: {
                 temperature: 0.3,
-                num_predict: 1000
+                num_predict: 3000
             }
         })
     });
@@ -369,7 +369,9 @@ function saveApiSettings() {
         provider: settings.provider,
         model: settings.model,
         baseUrl: settings.baseUrl,
-        apiKey: preserveApiKeyCheckbox.checked ? apiKeyInput.value : undefined
+        // Keep API key in memory for current session, even if not persisting to localStorage
+        // But don't use dots placeholder - keep the real key from previous setting if dots are shown
+        apiKey: apiKeyInput.value && apiKeyInput.value !== '••••••••' ? apiKeyInput.value : apiSettings.apiKey
     };
     setStatus('API settings saved');
 }

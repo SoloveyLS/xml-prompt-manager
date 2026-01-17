@@ -1,16 +1,4 @@
-// ==================== Prettify / Lessen ====================
-lessenBtn.addEventListener('click', () => {
-    // Convert actual newlines to literal "\n"
-    const lessenedText = lessenXML(editor.value);
-    const scrollTop = editor.scrollTop;
-    editor.focus();
-    editor.setSelectionRange(0, editor.value.length);
-    document.execCommand('insertText', false, lessenedText);
-    editor.scrollTop = scrollTop;
-    modeIndicator.textContent = 'Mode: Lessened';
-    setStatus('Converted newlines to literal \\n');
-});
-
+// ==================== Prettify ====================
 prettifyBtn.addEventListener('click', () => {
     // 1. Expand literal "\n" back to real newlines (protecting quotes)
     // 2. Apply XML Indentation
@@ -22,15 +10,8 @@ prettifyBtn.addEventListener('click', () => {
     editor.setSelectionRange(0, editor.value.length);
     document.execCommand('insertText', false, text);
     editor.scrollTop = scrollTop;
-    modeIndicator.textContent = 'Mode: Prettified';
     setStatus('Restored newlines and indented XML');
 });
-
-function lessenXML(xml) {
-    // Replace actual newline characters with literal "\n"
-    // Note: This creates a single long line (unless word wrap is on in CSS)
-    return xml.replace(/\n/g, '\\n');
-}
 
 function restoreNewlines(text) {
     // Converts literal "\n" back to real newlines,

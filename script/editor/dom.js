@@ -1,6 +1,5 @@
 // ==================== DOM Elements ====================
 window.editor = document.getElementById('editor');
-window.lessenBtn = document.getElementById('lessenBtn');
 window.prettifyBtn = document.getElementById('prettifyBtn');
 window.saveStructureBtn = document.getElementById('saveStructureBtn');
 window.saveFieldBtn = document.getElementById('saveFieldBtn');
@@ -64,4 +63,3 @@ window.cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 window.confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
 window.statusMsg = document.getElementById('statusMsg');
-window.modeIndicator = document.getElementById('modeIndicator');

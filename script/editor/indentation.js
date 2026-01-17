@@ -225,6 +225,100 @@ editor.addEventListener('keydown', (e) => {
             document.execCommand('insertText', false, textToInsert);
         }
 
+        // Helper function to get information about lines affected by selection
+        function getAffectedLines(text, start, end) {
+            const lines = text.split('\n');
+            const lineStarts = [0]; // Position where each line starts
+
+            // Calculate line start positions
+            for (let i = 0; i < lines.length - 1; i++) {
+                lineStarts.push(lineStarts[i] + lines[i].length + 1); // +1 for \n
+            }
+
+            // Find which line start and end fall on
+            let startLineIndex = 0;
+            let endLineIndex = 0;
+
+            for (let i = 0; i < lineStarts.length; i++) {
+                if (lineStarts[i] <= start) {
+                    startLineIndex = i;
+                }
+                if (lineStarts[i] <= end) {
+                    endLineIndex = i;
+                }
+            }
+
+            // Calculate column positions within their lines
+            const selectionStartCol = start - lineStarts[startLineIndex];
+            const selectionEndCol = end - lineStarts[endLineIndex];
+
+            return {
+                startLineIndex,
+                endLineIndex,
+                lines,
+                lineStarts,
+                selectionStartCol,
+                selectionEndCol
+            };
+        }
+
+        // Helper function to indent/unindent lines to multiples of 4
+        function indentLines(lines, indent = true) {
+            const indentChanges = [];
+            const modifiedLines = [];
+
+            for (const line of lines) {
+                // Count current leading spaces
+                const match = line.match(/^( *)/);
+                const currentSpaces = match ? match[1].length : 0;
+
+                if (indent) {
+                    // Add spaces to reach next multiple of 4
+                    const spacesToAdd = 4 - (currentSpaces % 4);
+                    modifiedLines.push(' '.repeat(spacesToAdd) + line);
+                    indentChanges.push(spacesToAdd);
+                } else {
+                    // Remove spaces to reach previous multiple of 4
+                    const spacesToRemove = currentSpaces % 4 || 4;
+                    const actualRemove = Math.min(spacesToRemove, currentSpaces);
+                    modifiedLines.push(line.substring(actualRemove));
+                    indentChanges.push(-actualRemove);
+                }
+            }
+
+            return { modifiedLines, indentChanges };
+        }
+
+        // Helper function to calculate new selection after indentation
+        function calculateNewSelection(start, end, startLineIndex, endLineIndex, lineStarts, indentChanges, selectionStartCol, selectionEndCol) {
+            const firstLineChange = indentChanges[0];
+
+            // Calculate cumulative change for all affected lines
+            let cumulativeChange = 0;
+            for (let i = 0; i < indentChanges.length; i++) {
+                cumulativeChange += indentChanges[i];
+            }
+
+            // Adjust start position
+            let newStart;
+            if (selectionStartCol === 0) {
+                // Selection starts at beginning of line - keep it at beginning
+                newStart = start;
+            } else {
+                // Selection starts mid-line - adjust by indent change
+                newStart = start + firstLineChange;
+            }
+
+            // Adjust end position by cumulative changes
+            let newEnd = end + cumulativeChange;
+
+            // Ensure valid range
+            newStart = Math.max(0, newStart);
+            newEnd = Math.max(newStart, newEnd);
+
+            return { newStart, newEnd };
+        }
+
         // Handle Enter key for maintaining indentation
         if (e.key === 'Enter') {
             // Find the current line start and get its indentation
@@ -240,73 +334,47 @@ editor.addEventListener('keydown', (e) => {
             return;
         }
 
-        // Check if we have a selection spanning multiple lines
-        const hasMultiLineSelection = start !== end && text.substring(start, end).includes('\n');
+        // Check if we have any selection (single or multi-line)
+        const hasSelection = start !== end;
 
-        if (hasMultiLineSelection) {
-            // Multi-line tab indentation/un-indentation requires direct manipulation for complex replacements
-            // This still breaks undo history for multi-line operations, but single-line operations are preserved
-            e.preventDefault();
+        if (hasSelection) {
+            // UNIFIED HANDLING: Treat all selections the same way
+            // Find which lines are affected (even partially)
+            const affectedInfo = getAffectedLines(text, start, end);
+            const { startLineIndex, endLineIndex, lines, lineStarts, selectionStartCol, selectionEndCol } = affectedInfo;
 
-            const beforeSelection = text.substring(0, start);
-            const selectedText = text.substring(start, end);
-            const afterSelection = text.substring(end);
+            // Indent or unindent the affected lines
+            const { modifiedLines, indentChanges } = indentLines(
+                lines.slice(startLineIndex, endLineIndex + 1),
+                !isUnindent
+            );
 
-            // Find the line boundaries
-            const beforeLines = beforeSelection.split('\n');
-            const selectedLines = selectedText.split('\n');
-            const afterLines = afterSelection.split('\n');
+            // Reconstruct the full text
+            const beforeLines = lines.slice(0, startLineIndex);
+            const afterLines = lines.slice(endLineIndex + 1);
+            const newText = [...beforeLines, ...modifiedLines, ...afterLines].join('\n');
 
-            let modifiedLines;
-            let indentChange = 0;
+            // Calculate new selection position
+            const { newStart, newEnd } = calculateNewSelection(
+                start, end, startLineIndex, endLineIndex,
+                lineStarts, indentChanges, selectionStartCol, selectionEndCol
+            );
 
-            if (isUnindent) {
-                // Remove up to 4 spaces from the beginning of each selected line
-                modifiedLines = selectedLines.map(line => {
-                    const match = line.match(/^ {1,4}/);
-                    if (match) {
-                        indentChange -= match[0].length;
-                        return line.substring(match[0].length);
-                    }
-                    return line;
-                });
-                setStatus(`Un-indented ${selectedLines.length} lines`);
-            } else {
-                // Add tab (4 spaces) to the beginning of each selected line
-                modifiedLines = selectedLines.map(line => '    ' + line);
-                indentChange = 4;
-                setStatus(`Indented ${selectedLines.length} lines`);
-            }
+            // Use execCommand to preserve undo history
+            editor.focus();
+            editor.setSelectionRange(0, text.length);
+            document.execCommand('insertText', false, newText);
+            editor.setSelectionRange(newStart, newEnd);
 
-            const newText = beforeLines.slice(0, -1).join('\n') + '\n' +
-                           modifiedLines.join('\n') + '\n' +
-                           (afterLines.length > 0 ? afterLines[0] : '') +
-                           (afterLines.length > 1 ? '\n' + afterLines.slice(1).join('\n') : '');
-
-            editor.value = newText;
-
-            // Preserve (shift) the selection range
-            let newSelectionStart = start;
-            let newSelectionEnd = end + (indentChange * selectedLines.length);
-
-            // Adjust for the fact that we're modifying the text
-            if (isUnindent) {
-                // For un-indent, we need to move selection start left by removed spaces
-                const spacesRemoved = selectedLines.reduce((total, line) => {
-                    const match = line.match(/^ {1,4}/);
-                    return total + (match ? match[0].length : 0);
-                }, 0);
-                newSelectionStart = Math.max(0, start - spacesRemoved);
-                newSelectionEnd = Math.max(0, end - spacesRemoved);
-            }
-
-            editor.setSelectionRange(newSelectionStart, newSelectionEnd);
+            // Status message
+            const lineCount = endLineIndex - startLineIndex + 1;
+            setStatus(isUnindent
+                ? `Un-indented ${lineCount} line${lineCount > 1 ? 's' : ''}`
+                : `Indented ${lineCount} line${lineCount > 1 ? 's' : ''}`);
 
         } else if (isUnindent) {
-            // Single line un-indentation - remove up to 4 spaces before cursor
+            // No selection, Shift+Tab: Remove spaces before cursor
             const before = text.substring(0, start);
-
-            // Check if there are spaces before the cursor
             const spaceMatch = before.match(/ {1,4}$/);
             if (spaceMatch) {
                 const spacesToRemove = spaceMatch[0].length;
@@ -316,12 +384,10 @@ editor.addEventListener('keydown', (e) => {
                 setStatus('No indentation to remove');
             }
         } else {
-            // Single line or no selection - insert spaces to next 4-space boundary
+            // No selection, Tab: Insert spaces to next 4-space boundary
             const lineStart = text.lastIndexOf('\n', start - 1) + 1;
             const currentLine = text.substring(lineStart, start);
-            const currentIndent = currentLine.length; // Length up to cursor = column
-
-            // Calculate spaces needed to reach next 4-space boundary
+            const currentIndent = currentLine.length;
             const spacesToAdd = 4 - (currentIndent % 4);
             const spaces = ' '.repeat(spacesToAdd);
 

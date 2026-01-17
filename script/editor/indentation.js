@@ -6,7 +6,7 @@ lessenBtn.addEventListener('click', () => {
     editor.focus();
     editor.setSelectionRange(0, editor.value.length);
     document.execCommand('insertText', false, lessenedText);
-    setTimeout(() => { editor.scrollTop = scrollTop; }, 0);
+    editor.scrollTop = scrollTop;
     modeIndicator.textContent = 'Mode: Lessened';
     setStatus('Converted newlines to literal \\n');
 });
@@ -21,7 +21,7 @@ prettifyBtn.addEventListener('click', () => {
     editor.focus();
     editor.setSelectionRange(0, editor.value.length);
     document.execCommand('insertText', false, text);
-    setTimeout(() => { editor.scrollTop = scrollTop; }, 0);
+    editor.scrollTop = scrollTop;
     modeIndicator.textContent = 'Mode: Prettified';
     setStatus('Restored newlines and indented XML');
 });
@@ -370,7 +370,7 @@ editor.addEventListener('keydown', (e) => {
             editor.setSelectionRange(0, text.length);
             document.execCommand('insertText', false, newText);
             editor.setSelectionRange(newStart, newEnd);
-            setTimeout(() => { editor.scrollTop = scrollTop; }, 0);
+            editor.scrollTop = scrollTop;
 
             // Status message
             const lineCount = endLineIndex - startLineIndex + 1;

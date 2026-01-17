@@ -2,9 +2,11 @@
 lessenBtn.addEventListener('click', () => {
     // Convert actual newlines to literal "\n"
     const lessenedText = lessenXML(editor.value);
+    const scrollTop = editor.scrollTop;
     editor.focus();
     editor.setSelectionRange(0, editor.value.length);
     document.execCommand('insertText', false, lessenedText);
+    setTimeout(() => { editor.scrollTop = scrollTop; }, 0);
     modeIndicator.textContent = 'Mode: Lessened';
     setStatus('Converted newlines to literal \\n');
 });
@@ -15,9 +17,11 @@ prettifyBtn.addEventListener('click', () => {
     let text = editor.value;
     text = restoreNewlines(text);
     text = prettifyXML(text);
+    const scrollTop = editor.scrollTop;
     editor.focus();
     editor.setSelectionRange(0, editor.value.length);
     document.execCommand('insertText', false, text);
+    setTimeout(() => { editor.scrollTop = scrollTop; }, 0);
     modeIndicator.textContent = 'Mode: Prettified';
     setStatus('Restored newlines and indented XML');
 });
@@ -361,10 +365,12 @@ editor.addEventListener('keydown', (e) => {
             );
 
             // Use execCommand to preserve undo history
+            const scrollTop = editor.scrollTop;
             editor.focus();
             editor.setSelectionRange(0, text.length);
             document.execCommand('insertText', false, newText);
             editor.setSelectionRange(newStart, newEnd);
+            setTimeout(() => { editor.scrollTop = scrollTop; }, 0);
 
             // Status message
             const lineCount = endLineIndex - startLineIndex + 1;
@@ -373,13 +379,22 @@ editor.addEventListener('keydown', (e) => {
                 : `Indented ${lineCount} line${lineCount > 1 ? 's' : ''}`);
 
         } else if (isUnindent) {
-            // No selection, Shift+Tab: Remove spaces before cursor
+            // No selection, Shift+Tab: Remove spaces to reach previous multiple of 4
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = text.substring(lineStart, start);
+            const currentIndent = currentLine.length;
+
+            // Calculate spaces to remove to reach previous multiple of 4
+            const spacesToRemove = currentIndent % 4 || 4;
+
+            // Only remove spaces that exist before cursor
             const before = text.substring(0, start);
-            const spaceMatch = before.match(/ {1,4}$/);
+            const spaceMatch = before.match(new RegExp(` {1,${spacesToRemove}}$`));
+
             if (spaceMatch) {
-                const spacesToRemove = spaceMatch[0].length;
-                insertTextWithUndo('', spacesToRemove);
-                setStatus(`Removed ${spacesToRemove} spaces`);
+                const actualRemove = spaceMatch[0].length;
+                insertTextWithUndo('', actualRemove);
+                setStatus(`Removed ${actualRemove} space${actualRemove > 1 ? 's' : ''}`);
             } else {
                 setStatus('No indentation to remove');
             }

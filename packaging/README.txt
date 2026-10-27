@@ -1,4 +1,4 @@
-XML Prompt Manager 0.1.0
+XML Prompt Manager 0.1.1
 
 Windows (64 bit, Windows 10/11):
   Extract the ZIP and double-click xml-prompt-manager.exe.

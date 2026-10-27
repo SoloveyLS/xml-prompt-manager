@@ -14,6 +14,16 @@ with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
     port = sock.getsockname()[1]
 base = f'http://127.0.0.1:{port}'
+
+def stop(process):
+    if sys.platform == 'win32':
+        subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    else:
+        process.terminate()
+    process.wait(timeout=10)
+
+
 process = subprocess.Popen([str(exe), '--headless', '--no-browser', '--port', str(port)])
 try:
     for _ in range(200):
@@ -43,10 +53,13 @@ try:
     subprocess.run([str(exe), '--headless', '--no-browser', '--port', str(port)], check=True, timeout=20)
     print('Standalone executable smoke checks passed.')
 finally:
-    process.terminate()
-    process.wait(timeout=10)
+    stop(process)
 
 if '--gui' in sys.argv:
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+    base = f'http://127.0.0.1:{port}'
     process = subprocess.Popen([str(exe), '--no-browser', '--port', str(port)])
     try:
         for _ in range(200):
@@ -62,5 +75,4 @@ if '--gui' in sys.argv:
             raise RuntimeError('GUI launcher did not initialize')
         print('GUI launcher and icon initialization passed.')
     finally:
-        process.terminate()
-        process.wait(timeout=10)
+        stop(process)

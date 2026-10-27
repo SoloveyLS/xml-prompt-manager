@@ -5,6 +5,7 @@ import argparse
 import functools
 import http.server
 import json
+import socket
 from pathlib import Path
 import sys
 import threading
@@ -55,6 +56,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+class LocalServer(http.server.ThreadingHTTPServer):
+    # Windows SO_REUSEADDR allows two active listeners on the same port.
+    allow_reuse_address = sys.platform != 'win32'
+    daemon_threads = True
+
+    def server_bind(self):
+        if sys.platform == 'win32':
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def main():
     parser = argparse.ArgumentParser(description='XML Prompt Manager desktop launcher')
     parser.add_argument('--port', type=int, default=13031)
@@ -64,8 +76,7 @@ def main():
     url = f'http://127.0.0.1:{args.port}/xml_prompt_manager.html'
     server = None
     try:
-        server = http.server.ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
-        server.daemon_threads = True
+        server = LocalServer(('127.0.0.1', args.port), Handler)
     except OSError:
         try:
             with urllib.request.urlopen(f'http://127.0.0.1:{args.port}/__app_health', timeout=2) as response:

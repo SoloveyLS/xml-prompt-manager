@@ -8,3 +8,9 @@ env.bak/
 # ClaudeCode
 .claude
 CLAUDE.md
+# Desktop build outputs
+build/
+dist/
+__pycache__/
+*.spec
+.venv/
